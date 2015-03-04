@@ -1,8 +1,8 @@
 /*!
- *	Mimic (XML-RPC Client for JavaScript) v2.3 
+ *	Mimic (XML-RPC Client for JavaScript) v2.3
  *	Copyright (C) 2005-2013 Carlos Eduardo Goncalves (cadu.goncalves@gmail.com)
  *
- *	Mimic is dual licensed under the MIT (http://opensource.org/licenses/mit-license.php) 
+ *	Mimic is dual licensed under the MIT (http://opensource.org/licenses/mit-license.php)
  * 	and GPLv3 (http://opensource.org/licenses/gpl-3.0.html) licenses.
  */
 
@@ -82,7 +82,7 @@ XmlRpc.SCALAR = "<${TYPE}>${DATA}</${TYPE}>\n";
  * Get the tag name used to represent a JavaScript object in the XMLRPC
  * protocol.
  * </p>
- * 
+ *
  * @param data
  *            A JavaScript object.
  * @return <code>String</code> with XMLRPC object type.
@@ -91,7 +91,7 @@ XmlRpc.getDataTag = function(data) {
 	try {
 		// Vars
 		var tag = typeof data;
-		
+
 		switch (tag.toLowerCase()) {
 		case "number":
 			tag = (Math.round(data) == data) ? "int" : "double";
@@ -124,7 +124,7 @@ XmlRpc.getDataTag = function(data) {
  * <p>
  * Get JavaScript object type represented by XMLRPC protocol tag.
  * <p>
- * 
+ *
  * @param tag
  *            A XMLRPC tag name.
  * @return A JavaScript object.
@@ -132,7 +132,7 @@ XmlRpc.getDataTag = function(data) {
 XmlRpc.getTagData = function(tag) {
 	// Vars
 	var data = null;
-	
+
 	switch (tag) {
 	case "struct":
 		data = new Object();
@@ -163,7 +163,7 @@ XmlRpc.getTagData = function(tag) {
 
 /**
  * XmlRpcRequest.
- * 
+ *
  * @param url
  *            Server url.
  * @param method
@@ -173,7 +173,7 @@ function XmlRpcRequest(url, method) {
 	this.serviceUrl = url;
 	this.methodName = method;
 	this.crossDomain = false;
-	this.withCredentials = false;	
+	this.withCredentials = false;
 	this.params = [];
 	this.headers = {};
 };
@@ -182,21 +182,21 @@ function XmlRpcRequest(url, method) {
  * <p>
  * Add a new request parameter.
  * </p>
- * 
+ *
  * @param data
  *            New parameter value.
  */
 XmlRpcRequest.prototype.addParam = function(data) {
 	// Vars
 	var type = typeof data;
-	
+
 	switch (type.toLowerCase()) {
 	case "function":
 		return;
 	case "object":
 		if (!data.constructor.name){
 			return;
-		}	
+		}
 	}
 	this.params.push(data);
 };
@@ -205,7 +205,7 @@ XmlRpcRequest.prototype.addParam = function(data) {
  * <p>
  * Clear all request parameters.
  * </p>
- * 
+ *
  * @param data
  *            New parameter value.
  */
@@ -217,7 +217,7 @@ XmlRpcRequest.prototype.clearParams = function() {
  * <p>
  * Define HTTP header value.
  * </p>
- * 
+ *
  * @param name
  *            Header name.
  * @param data
@@ -238,30 +238,42 @@ XmlRpcRequest.prototype.setHeader = function(name, value) {
  *
  * @return XmlRpcResponse object.
  */
-XmlRpcRequest.prototype.send = function() {
+XmlRpcRequest.prototype.send = function( cbProcessXmlRpcResponse ) {
 	// Vars
-	var xml_params = "", 
-	    i = 0, 
+	var xml_params = "",
+	    i = 0,
 	    xml_call, xhr;
     // XMLRPC
 	for (i = 0; i < this.params.length; i++) {
 		xml_params += XmlRpc.PARAM.replace("${DATA}", this.marshal(this.params[i]));
 	}
 	xml_call = XmlRpc.REQUEST.replace("${METHOD}", this.methodName);
-	xml_call = XmlRpc.PROLOG + xml_call.replace("${DATA}", xml_params);	
+	xml_call = XmlRpc.PROLOG + xml_call.replace("${DATA}", xml_params);
 	// XHR
 	xhr = Builder.buildXHR(this.crossDomain);
-	xhr.open("POST", this.serviceUrl, false);	
+	xhr.open("POST", this.serviceUrl, true);
 	// HTTP headers
 	for(i in this.headers) {
 	    if (this.headers.hasOwnProperty(i)) {
 		  xhr.setRequestHeader(i, this.headers[i]);
 		}
-	}		
-	// HTTP credentials 
+	}
+	// HTTP credentials
 	if(this.withCredentials && "withCredentials" in xhr) {
 		xhr.withCredentials = true;
-	}	
+	}
+	xhr.onreadystatechange = function () {
+		if (this.readyState === 4) {
+			if (this.status === 200) {
+				var rsp = new XmlRpcResponse(xhr.responseXML);
+				cbProcessXmlRpcResponse(rsp);
+			} else {
+				console.log('Status ' + xhr.status + ': ' + xhr.statusText);
+			}
+		} else {
+			return false;
+		}
+	};
 	xhr.send(Builder.buildDOM(xml_call));
 	return new XmlRpcResponse(xhr.responseXML);
 };
@@ -270,16 +282,16 @@ XmlRpcRequest.prototype.send = function() {
  * <p>
  * Marshal request parameters.
  * </p>
- * 
+ *
  * @param data
  *            A request parameter.
  * @return String with XML-RPC element notation.
  */
 XmlRpcRequest.prototype.marshal = function(data) {
 	// Vars
-	var type = XmlRpc.getDataTag(data), 
-	    scalar_type = XmlRpc.SCALAR.replace(/\$\{TYPE\}/g, type), 
-	    xml = "", 
+	var type = XmlRpc.getDataTag(data),
+	    scalar_type = XmlRpc.SCALAR.replace(/\$\{TYPE\}/g, type),
+	    xml = "",
 	    value, i, member;
 
 	switch (type) {
@@ -318,7 +330,7 @@ XmlRpcRequest.prototype.marshal = function(data) {
 
 /**
  * XmlRpcResponse.
- * 
+ *
  * @param xml
  *            Response XML document.
  */
@@ -330,7 +342,7 @@ function XmlRpcResponse(xml) {
  * <p>
  * Indicate if response is a fault.
  * </p>
- * 
+ *
  * @return Boolean flag indicating fault status.
  */
 XmlRpcResponse.prototype.isFault = function() {
@@ -341,7 +353,7 @@ XmlRpcResponse.prototype.isFault = function() {
  * <p>
  * Parse XML response to JavaScript.
  * </p>
- * 
+ *
  * @return JavaScript object parsed from XML-RPC document.
  */
 XmlRpcResponse.prototype.parseXML = function() {
@@ -363,7 +375,7 @@ XmlRpcResponse.prototype.parseXML = function() {
  * <p>
  * Unmarshal response parameters.
  * </p>
- * 
+ *
  * @param node
  *            Current document node under processing.
  * @param parent
@@ -456,7 +468,7 @@ function Builder() {
  * <p>
  * Build a valid XMLHttpRequest object
  * </p>
- * 
+ *
  * @param cors
  *            Define if returned implementation must provide CORS (Cross-Origin Resource Sharing) support.
  * @return XMLHttpRequest object.
@@ -473,7 +485,7 @@ Builder.buildXHR = function(cors) {
  * <p>
  * Build a valid XML document from string markup.
  * </p>
- * 
+ *
  * @param xml
  *            Document markup.
  * @return XMLDocument object.
@@ -508,16 +520,16 @@ Builder.buildDOM = function(xml) {
  * <p>
  * Convert a GMT date to ISO8601.
  * </p>
- * 
+ *
  * @return <code>String</code> with an ISO8601 date.
  */
 Date.prototype.toIso8601 = function() {
-	// Vars	
+	// Vars
 	var year = this.getYear(),
 	    month = this.getMonth() + 1,
 	    day = this.getDate(),
 	    time = this.toTimeString().substr(0, 8);
-	
+
 	// Normalization
 	if (year < 1900) {
 		year += 1900;
@@ -528,7 +540,7 @@ Date.prototype.toIso8601 = function() {
 	if (day < 10) {
 		day = "0" + day;
 	}
-	
+
 	return year + month + day + "T" + time;
 };
 
@@ -536,20 +548,20 @@ Date.prototype.toIso8601 = function() {
  * <p>
  * Convert ISO8601 date to GMT.
  * </p>
- * 
+ *
  * @param value
  *            ISO8601 date.
  * @return GMT date.
  */
 Date.fromIso8601 = function(value) {
-	// Vars	
+	// Vars
 	var year = value.substr(0, 4),
 	    month = value.substr(4, 2),
 	    day = value.substr(6, 2),
 	    hour = value.substr(9, 2),
 	    minute = value.substr(12, 2),
 	    sec = value.substr(15, 2);
-	    
+
 	return new Date(year, month - 1, day, hour, minute, sec, 0);
 };
 
@@ -571,7 +583,7 @@ Base64.CHAR_MAP = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012345678
  * <p>
  * Encode the object bytes using base64 algorithm.
  * </p>
- * 
+ *
  * @return Encoded string.
  */
 Base64.prototype.encode = function() {
@@ -579,11 +591,11 @@ Base64.prototype.encode = function() {
 		return btoa(this.bytes);
 	} else {
 		// Vars
-		var _byte = [], 
-		_char = [], 
+		var _byte = [],
+		_char = [],
 		_result = [],
 		j = 0, i = 0;
-		
+
 		for (i = 0; i < this.bytes.length; i += 3) {
 			_byte[0] = this.bytes.charCodeAt(i);
 			_byte[1] = this.bytes.charCodeAt(i + 1);
@@ -610,7 +622,7 @@ Base64.prototype.encode = function() {
  * <p>
  * Decode the object bytes using base64 algorithm.
  * </p>
- * 
+ *
  * @return Decoded string.
  */
 Base64.prototype.decode = function() {
@@ -618,11 +630,11 @@ Base64.prototype.decode = function() {
 		return atob(this.bytes);
 	} else {
 		// Vars
-		var _byte = [], 
-		_char = [], 
-		_result = [], 
+		var _byte = [],
+		_char = [],
+		_result = [],
 		j = 0, i = 0;
-		
+
 		while ((this.bytes.length % 4) != 0) {
 			this.bytes += "=";
 		}
